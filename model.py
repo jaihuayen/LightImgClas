@@ -17,7 +17,7 @@ class LightImgModel(pl.LightningModule):
         self.model_mapper = {'resnet50': models.resnet50, 
                              'mobilenet_v3_large': models.mobilenet_v3_large}
 
-        self.model = self.class_mapper[self.modelname](pretrained=self.pretrain)
+        self.model = self.model_mapper[self.modelname](pretrained=self.pretrain)
 
         if self.modelname == 'resnet50':
             self.model.fc = nn.Linear(self.class_mapper[self.modelname], self.num_classes)
