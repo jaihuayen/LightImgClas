@@ -20,9 +20,18 @@ class LightImgDataset(Dataset):
         return len(self.imag_labels)
 
     def __getitem__(self, idx):
-        img_path = os.path.join(self.imag_dir,self.img_labels.iloc[idx,'Path'])
-        img = Image.open(img_path)
-        label = self.img_labels.iloc[idx,'Label']
+        img_path = os.path.join(self.img_dir,self.img_labels.iloc[idx,'Path'])
+        img = (
+            Image.open(img_path)
+            .convert('RGB')
+        )
+        label = (
+            self.img_labels.iloc[idx,'Label']
+            .apply(lambda x: x.split(","))
+            .apply(lambda x: list(map(int, x)))
+        )
+
         if self.transform:
             img = self.transform(img)
+
         return img, label
