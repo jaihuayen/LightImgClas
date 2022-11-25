@@ -7,6 +7,8 @@ from torchvision import models, transforms
 from dataset import LightImgDataset
 from torch.utils.data.dataset import DataLoader
 
+from torchmetrics.classification import MultilabelFBetaScore
+
 from config import get_config
 
 class LightImgModel(pl.LightningModule):
@@ -45,30 +47,45 @@ class LightImgModel(pl.LightningModule):
                                                                   (0.229, 0.224, 0.225))
                                             ])
 
+        # Metrics calculation
+        self.train_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes)
+        self.valid_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes)
+        self.test_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes)
+
+        self.train_f2 = MultilabelFBetaScore(beta=2.0, num_labels=self.num_classes)
+        self.valid_f2 = MultilabelFBetaScore(beta=2.0, num_labels=self.num_classes)
+        self.test_f2 = MultilabelFBetaScore(beta=2.0, num_labels=self.num_classes)
+
     def forward(self, x):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("train_loss", loss, on_epoch=True)
-        return loss
+        train_f1 = self.train_f1(y_hat, y)
+        train_f2 = self.train_f2(y_hat, y)
+        self.log("train_f1", train_f1, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train_f2", train_f2, on_step=True, on_epoch=True, prog_bar=True)
+        return train_f1
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("valid_loss", loss, on_step=True)
+        val_f1 = self.valid_f1(y_hat, y)
+        val_f2 = self.valid_f2(y_hat, y)
+        self.log("val_f1", val_f1, on_epoch=True, prog_bar=True)
+        self.log("val_f2", val_f2, on_epoch=True, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("test_loss", loss)
+        test_f1 = self.test_f1(y_hat, y)
+        test_f2 = self.test_f2(y_hat, y)
+        self.log("test_f1", test_f1, on_epoch=True, prog_bar=True)
+        self.log("test_f2", test_f2, on_epoch=True, prog_bar=True)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+        return torch.optim.Adam(self.parameters(), lr=self.args.lr)
 
     def setup(self):
         self.train_dataset = LightImgDataset(annotation_file=self.args.train,
