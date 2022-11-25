@@ -3,7 +3,7 @@ import argparse
 parser = argparse.ArgumentParser(description='PyTorch Lightning Image Classification')
 
 # Hyperparameter options
-parser.add_option('--lr', default=1e-02, type=float, help='learning rate')
+parser.add_argument('--lr', default=1e-02, type=float, help='learning rate')
 
 # Dataset options
 parser.add_argument('--data', default=None, type=str, help='path to images dataset')
@@ -21,10 +21,14 @@ parser.add_argument('--workers', default=0, type=int, help='number of data loade
 
 # Model options
 parser.add_argument('--modelname', default='resnet50', type=str, help='model architecture')
+parser.add_argument('--pretrain', action='store_true', help='set for transfer learning')
 parser.add_argument('--num_classes', default=420, type=str, help='number of model outputs')
+parser.add_argument('--num_epochs', default=100, type=str, help='number of model training epochs')
+parser.add_argument('--train_all_layers', action='store_true', help='set for all layer learning')
+
 
 # Other options
-parser.add_argument('-c', '--checkpoint', default='checkpoint', type=str, metavar='PATH',
+parser.add_argument('--c', default='checkpoint', type=str, metavar='PATH',
                     help='path to save checkpoint')
 
 

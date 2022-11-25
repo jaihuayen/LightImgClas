@@ -7,6 +7,10 @@ import torch
 from torch.utils.data.dataset import Dataset
 from PIL import Image, ImageFile
 
+from config import get_config
+
+args = get_config()
+
 Image.MAX_IMAGE_PIXELS = None
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -17,21 +21,27 @@ class LightImgDataset(Dataset):
         self.transform = transform
 
     def __len__(self):
-        return len(self.imag_labels)
+        return len(self.img_labels)
 
     def __getitem__(self, idx):
-        img_path = os.path.join(self.img_dir,self.img_labels.iloc[idx,'Path'])
+        img_path = os.path.join(self.img_dir,self.img_labels.loc[idx,'Path'])
         img = (
             Image.open(img_path)
             .convert('RGB')
         )
         label = (
-            self.img_labels.iloc[idx,'Label']
-            .apply(lambda x: x.split(","))
-            .apply(lambda x: list(map(int, x)))
+            self.img_labels.loc[idx,'LabelName']
+            .split(",")
         )
+        label = list(map(int,label))
 
         if self.transform:
             img = self.transform(img)
 
-        return img, label
+        ids_tensor = torch.LongTensor(np.array(label))
+        label_onehot = torch.FloatTensor(args.num_classes)
+        label_onehot.zero_()
+
+        label_onehot.scatter_(0, ids_tensor, 1)
+
+        return img, label_onehot.squeeze()

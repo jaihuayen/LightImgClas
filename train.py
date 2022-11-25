@@ -2,7 +2,6 @@ import os
 from config import get_config
 
 args = get_config()
-os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
 
 import random
 import numpy as np
@@ -16,19 +15,43 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from pytorch_lightning.callbacks import TQDMProgressBar
 from model import LightImgModel
-from config import get_config
+import pytorch_lightning.callbacks as plc
 
-args = get_config()
+def load_callbacks():
+    callbacks = []
+    callbacks.append(plc.EarlyStopping(
+        monitor='val_f1',
+        mode='max',
+        patience=5,
+        min_delta=0.001
+    ))
+    callbacks.append(plc.ModelCheckpoint(
+        monitor='val_f1',
+        filename='best-{epoch:02d}-{val_f1:.3f}',
+        save_top_k=1,
+        mode='max',
+        save_last=True
+    ))
+    callbacks.append(plc.TQDMProgressBar(
+        refresh_rate=1
+    ))
+    return callbacks
+
+
 
 tensor_logger = TensorBoardLogger(os.path.join(args.c, "tb_logs"), name="tensor_model")
 csv_logger = CSVLogger(os.path.join(args.c, "csv_logs"), name="csv_model")
 
 model = LightImgModel()
-trainer = Trainer(
-    accelerator="gpu", 
-    devices=-1,
-    max_epochs=3,
-    callbacks=[TQDMProgressBar(refresh_rate=20)],
-    logger=[tensor_logger, csv_logger],
-)
-trainer.fit(model)
+
+if __name__ == "__main__":
+    trainer = Trainer(
+        accelerator="gpu", 
+        devices=-1,
+        max_epochs=args.num_epochs,
+        callbacks=load_callbacks(),
+        logger=[tensor_logger, csv_logger],
+        strategy="ddp_find_unused_parameters_false",
+        default_root_dir=args.c
+    )
+    trainer.fit(model)

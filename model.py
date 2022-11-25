@@ -5,9 +5,10 @@ import torch.nn.functional as F
 
 from torchvision import models, transforms
 from dataset import LightImgDataset
-from torch.utils.data.dataset import DataLoader
+from torch.utils.data import DataLoader
 
 from torchmetrics.classification import MultilabelFBetaScore
+from torch.nn import MultiLabelSoftMarginLoss
 
 from config import get_config
 
@@ -20,11 +21,12 @@ class LightImgModel(pl.LightningModule):
         self.args = get_config()
 
         self.num_classes = self.args.num_classes
+        self.modelname = self.args.modelname
         self.class_mapper = {'resnet50': 2048, 'mobilenet_v3_large': 960}
         self.model_mapper = {'resnet50': models.resnet50, 
                              'mobilenet_v3_large': models.mobilenet_v3_large}
 
-        self.model = self.model_mapper[self.args.modelname](pretrained=self.args.pretrain)
+        self.model = self.model_mapper[self.modelname](pretrained=self.args.pretrain)
 
         if self.modelname == 'resnet50':
             self.model.fc = nn.Linear(self.class_mapper[self.modelname], self.num_classes)
@@ -56,38 +58,41 @@ class LightImgModel(pl.LightningModule):
         self.valid_f2 = MultilabelFBetaScore(beta=2.0, num_labels=self.num_classes)
         self.test_f2 = MultilabelFBetaScore(beta=2.0, num_labels=self.num_classes)
 
+        self.loss_fn = MultiLabelSoftMarginLoss()
+
     def forward(self, x):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
+        loss = self.loss_fn(y_hat, y)
         train_f1 = self.train_f1(y_hat, y)
         train_f2 = self.train_f2(y_hat, y)
-        self.log("train_f1", train_f1, on_step=True, on_epoch=True, prog_bar=True)
-        self.log("train_f2", train_f2, on_step=True, on_epoch=True, prog_bar=True)
-        return train_f1
+        self.log("train_f1", train_f1, on_step=True, prog_bar=True, logger=True)
+        self.log("train_f2", train_f2, on_step=True, prog_bar=True, logger=True)
+        return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         val_f1 = self.valid_f1(y_hat, y)
         val_f2 = self.valid_f2(y_hat, y)
-        self.log("val_f1", val_f1, on_epoch=True, prog_bar=True)
-        self.log("val_f2", val_f2, on_epoch=True, prog_bar=True)
+        self.log("val_f1", val_f1, on_epoch=True, prog_bar=True, logger=True)
+        self.log("val_f2", val_f2, on_epoch=True, prog_bar=True, logger=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         test_f1 = self.test_f1(y_hat, y)
         test_f2 = self.test_f2(y_hat, y)
-        self.log("test_f1", test_f1, on_epoch=True, prog_bar=True)
-        self.log("test_f2", test_f2, on_epoch=True, prog_bar=True)
+        self.log("test_f1", test_f1, on_epoch=True, prog_bar=True, logger=True)
+        self.log("test_f2", test_f2, on_epoch=True, prog_bar=True, logger=True)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.args.lr)
 
-    def setup(self):
+    def setup(self, stage=None):
         self.train_dataset = LightImgDataset(annotation_file=self.args.train,
                                              img_dir=self.args.data,
                                              transform=self.transform)
