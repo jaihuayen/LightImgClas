@@ -37,8 +37,6 @@ def load_callbacks():
     ))
     return callbacks
 
-
-
 tensor_logger = TensorBoardLogger(os.path.join(args.c, "tb_logs"), name="tensor_model")
 csv_logger = CSVLogger(os.path.join(args.c, "csv_logs"), name="csv_model")
 
@@ -52,6 +50,7 @@ if __name__ == "__main__":
         callbacks=load_callbacks(),
         logger=[tensor_logger, csv_logger],
         strategy="ddp_find_unused_parameters_false",
-        default_root_dir=args.c
+        default_root_dir=args.c,
+        log_every_n_steps=1
     )
     trainer.fit(model)
