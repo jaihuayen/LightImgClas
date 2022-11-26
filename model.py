@@ -10,7 +10,10 @@ from torch.utils.data import DataLoader
 from torchmetrics.classification import MultilabelFBetaScore
 from torch.nn import MultiLabelSoftMarginLoss
 
+from torch.utils.data.sampler import WeightedRandomSampler
+
 from config import get_config
+from misc import *
 
 class LightImgModel(pl.LightningModule):
     def __init__(self):
@@ -23,15 +26,13 @@ class LightImgModel(pl.LightningModule):
         self.num_classes = self.args.num_classes
         self.modelname = self.args.modelname
         self.class_mapper = {'resnet50': 2048, 'mobilenet_v3_large': 960}
-        self.model_mapper = {'resnet50': models.resnet50, 
-                             'mobilenet_v3_large': models.mobilenet_v3_large}
-
-        self.model = self.model_mapper[self.modelname](pretrained=self.args.pretrain)
 
         if self.modelname == 'resnet50':
+            self.model = models.resnet50(pretrained=self.args.pretrain)
             self.model.fc = nn.Linear(self.class_mapper[self.modelname], self.num_classes)
 
         elif self.modelname == 'mobilenet_v3_large':
+            self.model = models.mobilenet_v3_large(pretrained=self.args.pretrain)
             self.model.classifier[1] = nn.Linear(self.class_mapper[self.modelname],
                                                     len(self.num_classes))
         else:
@@ -50,44 +51,100 @@ class LightImgModel(pl.LightningModule):
                                             ])
 
         # Metrics calculation
-        self.train_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes)
-        self.valid_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes)
-        self.test_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes)
 
-        self.train_f2 = MultilabelFBetaScore(beta=2.0, num_labels=self.num_classes)
-        self.valid_f2 = MultilabelFBetaScore(beta=2.0, num_labels=self.num_classes)
-        self.test_f2 = MultilabelFBetaScore(beta=2.0, num_labels=self.num_classes)
+        self.train_f1_1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.1, weighted='weighted')
+        self.train_f1_2 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.2, weighted='weighted')
+        self.train_f1_3 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.3, weighted='weighted')
+        self.train_f1_4 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.4, weighted='weighted')
+        self.train_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                             threshold=0.5, weighted='weighted')
+
+        self.valid_f1_1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.1, weighted='weighted')
+        self.valid_f1_2 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.2, weighted='weighted')
+        self.valid_f1_3 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.3, weighted='weighted')
+        self.valid_f1_4 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.4, weighted='weighted')
+        self.valid_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                             threshold=0.5, weighted='weighted')
+
+
+        self.test_f1_1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.1, weighted='weighted')
+        self.test_f1_2 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.2, weighted='weighted')
+        self.test_f1_3 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.3, weighted='weighted')
+        self.test_f1_4 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                               threshold=0.4, weighted='weighted')
+        self.test_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+                                             threshold=0.5, weighted='weighted')
 
         self.loss_fn = MultiLabelSoftMarginLoss()
 
+        self.weight = compute_sampler_weight(self.args.train, 'LabelName')[0]
+        self.sampler = WeightedRandomSampler(weights=torch.from_numpy(np.array(self.weight)),
+                                             num_samples=len(self.weight),
+                                             replacement=True)
+
     def forward(self, x):
-        return self.model(x)
+        self.features.eval()
+        with torch.no_grad():
+            f = self.features(x)
+        f = f.view(f.size(0), -1)
+        f = self.classifier(f)
+        return torch.sigmoid(f)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
+        train_f1_1 = self.train_f1_1(y_hat, y)
+        train_f1_2 = self.train_f1_2(y_hat, y)
+        train_f1_3 = self.train_f1_3(y_hat, y)
+        train_f1_4 = self.train_f1_4(y_hat, y)
         train_f1 = self.train_f1(y_hat, y)
-        train_f2 = self.train_f2(y_hat, y)
-        self.log("train_f1", train_f1, on_step=True, prog_bar=True, logger=True)
-        self.log("train_f2", train_f2, on_step=True, prog_bar=True, logger=True)
+        self.log("loss", loss, on_step=True, on_epoch=True, logger=True)
+        self.log("train_f1", train_f1, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_f1_1", train_f1_1, on_epoch=True, logger=True)
+        self.log("train_f1_2", train_f1_2, on_epoch=True, logger=True)
+        self.log("train_f1_3", train_f1_3, on_epoch=True, logger=True)
+        self.log("train_f1_4", train_f1_4, on_epoch=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        val_f1 = self.valid_f1(y_hat, y)
-        val_f2 = self.valid_f2(y_hat, y)
-        self.log("val_f1", val_f1, on_epoch=True, prog_bar=True, logger=True)
-        self.log("val_f2", val_f2, on_epoch=True, prog_bar=True, logger=True)
+        valid_f1_1 = self.valid_f1_1(y_hat, y)
+        valid_f1_2 = self.valid_f1_2(y_hat, y)
+        valid_f1_3 = self.valid_f1_3(y_hat, y)
+        valid_f1_4 = self.valid_f1_4(y_hat, y)
+        valid_f1 = self.valid_f1(y_hat, y)
+        self.log("valid_f1", valid_f1, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_f1_1", valid_f1_1, on_epoch=True, logger=True)
+        self.log("valid_f1_2", valid_f1_2, on_epoch=True, logger=True)
+        self.log("valid_f1_3", valid_f1_3, on_epoch=True, logger=True)
+        self.log("valid_f1_4", valid_f1_4, on_epoch=True, logger=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
+        test_f1_1 = self.test_f1_1(y_hat, y)
+        test_f1_2 = self.test_f1_2(y_hat, y)
+        test_f1_3 = self.test_f1_3(y_hat, y)
+        test_f1_4 = self.test_f1_4(y_hat, y)
         test_f1 = self.test_f1(y_hat, y)
-        test_f2 = self.test_f2(y_hat, y)
-        self.log("test_f1", test_f1, on_epoch=True, prog_bar=True, logger=True)
-        self.log("test_f2", test_f2, on_epoch=True, prog_bar=True, logger=True)
+        self.log("test_f1", test_f1, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("test_f1_1", test_f1_1, on_epoch=True, logger=True)
+        self.log("test_f1_2", test_f1_2, on_epoch=True, logger=True)
+        self.log("test_f1_3", test_f1_3, on_epoch=True, logger=True)
+        self.log("test_f1_4", test_f1_4, on_epoch=True, logger=True)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.args.lr)
@@ -110,6 +167,7 @@ class LightImgModel(pl.LightningModule):
         return DataLoader(dataset = self.train_dataset, 
                           batch_size = self.args.train_batch_size,
                           num_workers = self.args.workers,
+                          sampler = self.sampler,
                           pin_memory = True)
 
     def val_dataloader(self):
