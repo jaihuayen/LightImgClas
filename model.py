@@ -52,38 +52,15 @@ class LightImgModel(pl.LightningModule):
 
         # Metrics calculation
 
-        self.train_f1_1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+        self.metric_f1_1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
                                                threshold=0.1, weighted='weighted')
-        self.train_f1_2 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+        self.metric_f1_2 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
                                                threshold=0.2, weighted='weighted')
-        self.train_f1_3 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+        self.metric_f1_3 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
                                                threshold=0.3, weighted='weighted')
-        self.train_f1_4 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+        self.metric_f1_4 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
                                                threshold=0.4, weighted='weighted')
-        self.train_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                             threshold=0.5, weighted='weighted')
-
-        self.valid_f1_1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                               threshold=0.1, weighted='weighted')
-        self.valid_f1_2 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                               threshold=0.2, weighted='weighted')
-        self.valid_f1_3 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                               threshold=0.3, weighted='weighted')
-        self.valid_f1_4 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                               threshold=0.4, weighted='weighted')
-        self.valid_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                             threshold=0.5, weighted='weighted')
-
-
-        self.test_f1_1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                               threshold=0.1, weighted='weighted')
-        self.test_f1_2 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                               threshold=0.2, weighted='weighted')
-        self.test_f1_3 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                               threshold=0.3, weighted='weighted')
-        self.test_f1_4 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
-                                               threshold=0.4, weighted='weighted')
-        self.test_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
+        self.metric_f1 = MultilabelFBetaScore(beta=1.0, num_labels=self.num_classes, 
                                              threshold=0.5, weighted='weighted')
 
         self.loss_fn = MultiLabelSoftMarginLoss()
@@ -105,11 +82,11 @@ class LightImgModel(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
-        train_f1_1 = self.train_f1_1(y_hat, y)
-        train_f1_2 = self.train_f1_2(y_hat, y)
-        train_f1_3 = self.train_f1_3(y_hat, y)
-        train_f1_4 = self.train_f1_4(y_hat, y)
-        train_f1 = self.train_f1(y_hat, y)
+        train_f1_1 = self.metric_f1_1(y_hat, y)
+        train_f1_2 = self.metric_f1_2(y_hat, y)
+        train_f1_3 = self.metric_f1_3(y_hat, y)
+        train_f1_4 = self.metric_f1_4(y_hat, y)
+        train_f1 = self.metric_f1(y_hat, y)
         self.log("loss", loss, on_step=True, on_epoch=True, logger=True)
         self.log("train_f1", train_f1, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_f1_1", train_f1_1, on_epoch=True, logger=True)
@@ -121,11 +98,11 @@ class LightImgModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        valid_f1_1 = self.valid_f1_1(y_hat, y)
-        valid_f1_2 = self.valid_f1_2(y_hat, y)
-        valid_f1_3 = self.valid_f1_3(y_hat, y)
-        valid_f1_4 = self.valid_f1_4(y_hat, y)
-        valid_f1 = self.valid_f1(y_hat, y)
+        valid_f1_1 = self.metric_f1_1(y_hat, y)
+        valid_f1_2 = self.metric_f1_2(y_hat, y)
+        valid_f1_3 = self.metric_f1_3(y_hat, y)
+        valid_f1_4 = self.metric_f1_4(y_hat, y)
+        valid_f1 = self.metric_f1(y_hat, y)
         self.log("valid_f1", valid_f1, on_epoch=True, prog_bar=True, logger=True)
         self.log("valid_f1_1", valid_f1_1, on_epoch=True, logger=True)
         self.log("valid_f1_2", valid_f1_2, on_epoch=True, logger=True)
@@ -135,11 +112,11 @@ class LightImgModel(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        test_f1_1 = self.test_f1_1(y_hat, y)
-        test_f1_2 = self.test_f1_2(y_hat, y)
-        test_f1_3 = self.test_f1_3(y_hat, y)
-        test_f1_4 = self.test_f1_4(y_hat, y)
-        test_f1 = self.test_f1(y_hat, y)
+        test_f1_1 = self.metric_f1_1(y_hat, y)
+        test_f1_2 = self.metric_f1_2(y_hat, y)
+        test_f1_3 = self.metric_f1_3(y_hat, y)
+        test_f1_4 = self.metric_f1_4(y_hat, y)
+        test_f1 = self.metric_f1(y_hat, y)
         self.log("test_f1", test_f1, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log("test_f1_1", test_f1_1, on_epoch=True, logger=True)
         self.log("test_f1_2", test_f1_2, on_epoch=True, logger=True)
