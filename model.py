@@ -71,11 +71,9 @@ class LightImgModel(pl.LightningModule):
                                              replacement=True)
 
     def forward(self, x):
-        self.features.eval()
-        with torch.no_grad():
-            f = self.features(x)
+        self.model.eval()
+        f = self.model(x)
         f = f.view(f.size(0), -1)
-        f = self.classifier(f)
         return torch.sigmoid(f)
 
     def training_step(self, batch, batch_idx):

@@ -20,16 +20,16 @@ import pytorch_lightning.callbacks as plc
 def load_callbacks():
     callbacks = []
     callbacks.append(plc.EarlyStopping(
-        monitor='val_f1',
-        mode='max',
+        monitor='loss_epoch',
+        mode='min',
         patience=5,
         min_delta=0.001
     ))
     callbacks.append(plc.ModelCheckpoint(
-        monitor='val_f1',
+        monitor='loss_epoch',
         filename='best-{epoch:02d}-{val_f1:.3f}',
         save_top_k=1,
-        mode='max',
+        mode='min',
         save_last=True
     ))
     callbacks.append(plc.TQDMProgressBar(
